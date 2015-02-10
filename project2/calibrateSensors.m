@@ -16,20 +16,22 @@ num_imus = ceil(percent_train*13);
 
 for i=3:num_imus+2
     if i-2 <= num_vicons
-        vicon_dir(i).name
-        load(['./ESE650 P2/vicon/', vicon_dir(i).name])
+        vicon = load(['./ESE650 P2/vicon/', vicon_dir(i).name]);
+        vicon_ts = vicon.ts;
+        rots = vicon.rots;
     end
-    imu_dir(i).name
-    load(['./ESE650 P2/imu/', imu_dir(i).name])
+    imu = load(['./ESE650 P2/imu/', imu_dir(i).name]);
+    imu_ts = imu.ts;
+    vals = imu.vals;
 end
 
 %% plot data
-plot(ts, vals(1,:), ts, vals(2,:), ts, vals(3,:));
+plot(imu_ts, vals(1,:), imu_ts, vals(2,:), imu_ts, vals(3,:));
 legend('x', 'y', 'z');
 xlabel('time');
 ylabel('acceleration');
 figure()
-plot(ts, vals(4,:), ts, vals(5,:), ts, vals(6,:));
+plot(imu_ts, vals(4,:), imu_ts, vals(5,:), imu_ts, vals(6,:));
 legend('z', 'x', 'y');
 xlabel('time');
 ylabel('gyro value');
@@ -39,15 +41,15 @@ R = rots(:,:,1);
 rotplot;
 for i = 2:length(rots)
     tic;
-    deltat = ts(i+1) - ts(i);
+    deltat = vicon_ts(i+1) - vicon_ts(i);
     xp = rots(:,:,i)*x;
     %set(p3, 'Xdata',xp(1,itop), 'YData',xp(2,itop),'ZData',xp(3,itop));
     set(p2, 'Xdata',xp(1,ibottom), 'YData',xp(2,ibottom),'ZData',xp(3,ibottom));
     set(s1, 'Xdata',xp(1,ifront), 'YData',xp(2,ifront),'ZData',xp(3,ifront));
     set(s2, 'Xdata',xp(1,iback), 'YData',xp(2,iback),'ZData',xp(3,iback));
     drawnow
-    while(toc < deltat)
-    end
+    %while(toc < deltat)
+    %end
 end
 %% Calibrate the IMU data
 
@@ -66,17 +68,17 @@ abias = 505;
 acc = (vals(1:3,:)-abias)*ascale;
 
 figure()
-plot(ts, acc(1,:), ts, acc(2,:), ts, acc(3,:));
+plot(imu_ts, acc(1,:), imu_ts, acc(2,:), imu_ts, acc(3,:));
 legend('x', 'y', 'z');
 xlabel('time');
 ylabel('m/s/s');
 
 figure()
-wscale = 1.5708e-4*(180/pi);
+wscale = 1.5708e-4;
 wbias = [370;374;375];
 w = bsxfun(@minus, vals(4:6,:), wbias)*wscale;
 angles = cumsum(w')';
-plot(ts, angles(1,:), ts, angels(2,:), ts, angles(3,:));
+plot(imu_ts, angles(1,:), imu_ts, angles(2,:), imu_ts, angles(3,:));
 legend('x', 'y', 'z');
 xlabel('time');
 ylabel('rad');
