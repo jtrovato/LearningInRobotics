@@ -74,10 +74,10 @@ acc = bsxfun(@minus,vals(1:3,:),abias)*ascale;
 wscale = 1.5708e-4;
 wbias = [370;373.6;375.5];
 w = [vals(2:3,:);vals(1,:)];
-w = bsxfun(@minus, vals(4:6,:), wbias)*wscale;
+w = bsxfun(@minus, -vals(4:6,:), wbias)*wscale;
 
 calibrated_vals = [acc; w];
-
+verbose =0;
 if verbose
     figure()
     plot(imu_ts, acc(1,:), imu_ts, acc(2,:), imu_ts, acc(3,:));
