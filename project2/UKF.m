@@ -1,12 +1,13 @@
 % implementation of a Kalman Filter for ESE650
 % Parameters: 
 n = 6; %number of dimensions
+h = []; % for plotting
 x = zeros(n+1,length(imu_ts)+1);
 P = zeros(n,n,length(imu_ts)+1);
 
 % initialization:
 % initialize to first orientation with very large covariance
-w1 = calibrated_vals(4:6,1);
+w1 = [0, 0.01, 0]'; %calibrated_vals(4:6,1);
 q = [1 0 0 0]';
 x(:,1) = [q;w1];
 P(:,:,1) = 10*eye(6);
@@ -19,13 +20,13 @@ for i = 1:length(imu_ts)
     % calculate sigma points:
     S = chol(P(:,:,i)+Q); % Cholesky Decomposition
     W = [-sqrt(2*n)*S, sqrt(2*n)*S]; %[6x12]
-    Wtemp = zeros(n+1, 2*n);
+    X = zeros(n+1, 2*n);
     for j = 1:2*n
         Wq = rot2quat(W(1:3,j));
-        Wtemp(:,j) = [Wq ; W(4:6,j)];
+        x_q = quat_mult(x(1:4),Wq);
+        x_omega = x(5:7,i)+ W(4:6,j); %[7x12] % rot to quat in W to add to state vector which is 7x1
+        X(:,j) = [x_q;x_omega];
     end
-    X = bsxfun(@plus, x(:,i), Wtemp); %[7x12] % rot to quat in W to add to state vector which is 7x1
-    
     %Transform Sigma Points Xi -> Yi -> Zi (and calculate means and
     %variance alonf the way)
     
@@ -35,7 +36,7 @@ for i = 1:length(imu_ts)
     for j = 1:2*n
         omega = X(5:7,j);q = X(1:4,j);
         q_delta = omega2quatdelta(omega, delta_t);
-        q_new = quat_mult(q',q_delta'); % transpose everything because the function takes in row vectors
+        q_new = quat_mult(q,q_delta); % transpose everything because the function takes in row vectors
         omega_new = omega; %stays the same according to model
         Y(:,j) = [q_new;omega_new];
     end
@@ -57,8 +58,20 @@ for i = 1:length(imu_ts)
         P_bar = P_bar + (1/2*n)*(W_prime*W_prime'); % prior estimate
     end
     
-    x(:,i+1) = x_hat_bar;
-    P(:,:,i) = P_bar;
+    
+    
+    verbose = 1;
+    if verbose
+        q_delta = omega2quatdelta(x(1:4,i), delta_t);
+        q_new = quat_mult(q,q_delta);
+        x(:,i+1) = [q_new; x(5:7,i)];
+        P(:,:,i+1) = P_bar;
+        x(:,i+1)
+        P(:,:,i+1)
+        DCM = quat2dcm(x(1:4,i+1));
+        R = 
+        h = newrotplot(DCM, h);
+    end
     
 %     %%%%%%%%%%%%%%%%%%%%%%  start of update step   %%%%%%%%%%%%%%%%%%%%%
 %     % Apply measurement model to Y (sigma points) to get Z (Z is for acc
