@@ -1,6 +1,6 @@
-function rot = quat2rot( q, deltat)
-alpha_w = 2*arccos(q(0));
-e_w = 1/(sin(arccos(q(0))));
-rot = (alpha_w*e_w/deltat)*q(2:4);
+function rot = quat2rot(q)
+alpha_w = 2*acos(q(1));
+e_w = 1/(sin(acos(q(1))));
+rot = (alpha_w*e_w)*q(2:4);
 end
 

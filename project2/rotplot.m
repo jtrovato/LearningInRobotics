@@ -18,14 +18,19 @@ iback = [2 4 8 6 2];
 itop = [1 2 4 3 1];
 ibottom = [5 6 8 7 5];
 
-p3 = plot3(xp(1,itop), xp(2,itop), xp(3,itop), 'k-');
-p2 = plot3(xp(1,ibottom), xp(2,ibottom), xp(3,ibottom), 'k-');
-
+x = plot3([0 1],[0 0],[0 0], 'r');
 hold on;
-s1 = patch(xp(1,ifront), xp(2,ifront), xp(3,ifront), 'b');
-s2 = patch(xp(1,iback), xp(2,iback), xp(3,iback), 'r');
-hold off;
+y = plot3([0 0],[0 1],[0 0], 'r');
+z = plot3([0 0],[0 0],[0 1], 'r');
+hold off
+% p3 = plot3(xp(1,itop), xp(2,itop), xp(3,itop), 'k-');
+% hold on;
+% p2 = plot3(xp(1,ibottom), xp(2,ibottom), xp(3,ibottom), 'k-');
+% s1 = patch(xp(1,ifront), xp(2,ifront), xp(3,ifront), 'b');
+% s2 = patch(xp(1,iback), xp(2,iback), xp(3,iback), 'r');
+% hold off;
 
 axis equal;
 axis([-2 2 -2 2 -2 2]);
+
 drawnow
