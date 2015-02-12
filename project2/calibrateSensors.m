@@ -13,13 +13,15 @@ vicon_dir = dir('./ESE650 P2/vicon');
 cam_dir = dir('./ESE650 P2/cam');
 
 data_set = 1;
-vicon = load(['./ESE650 P2/vicon/', vicon_dir(i+2).name]);
+vicon = load(['./ESE650 P2/vicon/', vicon_dir(data_set+2).name]);
 vicon_ts = vicon.ts;
 rots = vicon.rots;
-imu = load(['./ESE650 P2/imu/', imu_dir(i+2).name]);
+imu = load(['./ESE650 P2/imu/', imu_dir(data_set+2).name]);
 imu_ts = imu.ts;
 vals = imu.vals;
-load(['./ESE650 P2/cam/', cam_dir(i+2).name]);
+cam = load(['./ESE650 P2/cam/', cam_dir(data_set+2).name]);
+cam_ts = cam.ts;
+cam = cam.cam;
 
 
 %% plot data
@@ -50,6 +52,15 @@ if verbose
         %end
     end
 end
+
+%% plot the vicon angular velocity
+Rd = zeros(3,3,length(rots)-1);
+for i = 2:length(rots)
+    Rd = rots(:,:,i-1)'*rots(:,:,i);
+    r = vrrotmat2vec(Rd);
+end
+
+
 %% Calibrate the IMU data
 
 % % this does not work well
@@ -62,17 +73,17 @@ end
 
 
 % This does:
-ascale = 0.097; %/9.8; % g/bit
+ascale = [-0.097;-0.097;0.097]; %/9.8; % g/bit %make x and y negative!!!
 abias = [510;500;505];
-acc = bsxfun(@minus,vals(1:3,:),abias)*ascale;
+acc = bsxfun(@times,bsxfun(@minus,vals(1:3,:),abias), ascale);
 
-wscale =  0.01; %
-wbias = [373.5;375.6;369.5];
+wscale =  0.0158; %
+wbias = [373.567;375.3606;369.7041];
 w = [vals(5:6,:);vals(4,:)];
 w = bsxfun(@minus, w, wbias)*wscale;
 
 calibrated_vals = [acc; w];
-verbose =0;
+verbose =1;
 if verbose
     figure()
     plot(imu_ts, acc(1,:), imu_ts, acc(2,:), imu_ts, acc(3,:));
