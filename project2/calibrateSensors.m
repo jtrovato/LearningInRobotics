@@ -9,23 +9,18 @@ verbose = 0;
 %% Load the data
 
 imu_dir = dir('./ESE650 P2/imu');
-total_imus = length(imu_dir)-2;
 vicon_dir = dir('./ESE650 P2/vicon');
-total_vicons = length(vicon_dir)-2;
-percent_train = .01;
-num_vicons = ceil(percent_train*10);
-num_imus = ceil(percent_train*13);
+cam_dir = dir('./ESE650 P2/cam');
 
-for i=3:num_imus+2
-    if i-2 <= num_vicons
-        vicon = load(['./ESE650 P2/vicon/', vicon_dir(i).name]);
-        vicon_ts = vicon.ts;
-        rots = vicon.rots;
-    end
-    imu = load(['./ESE650 P2/imu/', imu_dir(i).name]);
-    imu_ts = imu.ts;
-    vals = imu.vals;
-end
+data_set = 1;
+vicon = load(['./ESE650 P2/vicon/', vicon_dir(i+2).name]);
+vicon_ts = vicon.ts;
+rots = vicon.rots;
+imu = load(['./ESE650 P2/imu/', imu_dir(i+2).name]);
+imu_ts = imu.ts;
+vals = imu.vals;
+load(['./ESE650 P2/cam/', cam_dir(i+2).name]);
+
 
 %% plot data
 if verbose
@@ -34,7 +29,7 @@ if verbose
     xlabel('time');
     ylabel('acceleration');
     figure()
-    plot(imu_ts, vals(4,:), imu_ts, vals(5,:), imu_ts, vals(6,:));
+    plot(imu_ts, vals(5,:), imu_ts, vals(6,:), imu_ts, vals(4,:));
     legend('z', 'x', 'y');
     xlabel('time');
     ylabel('gyro value');
@@ -67,14 +62,14 @@ end
 
 
 % This does:
-ascale = 0.016; % g/bit
+ascale = 0.097; %/9.8; % g/bit
 abias = [510;500;505];
 acc = bsxfun(@minus,vals(1:3,:),abias)*ascale;
 
-wscale = 1.5708e-4;
-wbias = [370;373.6;375.5];
-w = [vals(2:3,:);vals(1,:)];
-w = bsxfun(@minus, -vals(4:6,:), wbias)*wscale;
+wscale =  0.01; %
+wbias = [373.5;375.6;369.5];
+w = [vals(5:6,:);vals(4,:)];
+w = bsxfun(@minus, w, wbias)*wscale;
 
 calibrated_vals = [acc; w];
 verbose =0;
@@ -86,11 +81,10 @@ if verbose
     ylabel('g');
 
     figure()
-    angles = cumsum(w')';
-    plot(imu_ts, angles(1,:), imu_ts, angles(2,:), imu_ts, angles(3,:));
+    plot(imu_ts, w(1,:), imu_ts, w(2,:), imu_ts, w(3,:));
     legend('x', 'y', 'z');
     xlabel('time');
-    ylabel('rad');
+    ylabel('rad/s');
 end
 
 

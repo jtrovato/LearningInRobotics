@@ -85,6 +85,7 @@ for i = 2:length(imu_ts)
     
     %calculate innovation and covariance
     measurement = calibrated_vals(:,i); %actual measurement
+    measurement(4:6) = measurement(4:6)*(180/pi);
     v = measurement - Z_bar; %innovation
     Pvv = Pzz + R; %[6x6]
     
@@ -111,7 +112,6 @@ for i = 2:length(imu_ts)
             x(:,i+1) = x_hat_bar;
             P(:,:,i+1) = P_bar;
         end
-        
         
         x(:,i+1)
         P(:,:,i+1)
