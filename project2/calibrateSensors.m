@@ -1,27 +1,40 @@
 % ESE650 Project 2
 % author: Joe Trovato
 % 
-% This script loads training data nad calibrates the data to get meaningful
+% This script loads training data and calibrates the data to get meaningful
 % values.
 verbose = 0;
 
 
 %% Load the data
 
-imu_dir = dir('./ESE650 P2/imu');
-vicon_dir = dir('./ESE650 P2/vicon');
-cam_dir = dir('./ESE650 P2/cam');
 
-data_set = 1;
-vicon = load(['./ESE650 P2/vicon/', vicon_dir(data_set+2).name]);
-vicon_ts = vicon.ts;
-rots = vicon.rots;
-imu = load(['./ESE650 P2/imu/', imu_dir(data_set+2).name]);
-imu_ts = imu.ts;
-vals = imu.vals;
-cam = load(['./ESE650 P2/cam/', cam_dir(data_set+2).name]);
-cam_ts = cam.ts;
-cam = cam.cam;
+
+%     imu_dir = dir('./ESE650 P2/imu');
+%     vicon_dir = dir('./ESE650 P2/vicon');
+%     cam_dir = dir('./ESE650 P2/cam');
+    vicon_filename = 'viconRot2.mat';
+    cam_filename = 'cam2';
+    imu_filename = 'imuRaw2';
+    
+if ~test
+    vicon = load(['./ESE650 P2/vicon/',vicon_filename]);
+    vicon_ts = vicon.ts;
+    rots = vicon.rots;
+    imu = load(['./ESE650 P2/imu/', imu_filename]);
+    imu_ts = imu.ts;
+    vals = imu.vals;
+    cam = load(['./ESE650 P2/cam/', cam_filename]);
+    cam_ts = cam.ts;
+    cam = cam.cam;
+else
+    imu = load('./P2_TEST/imu_test.mat');
+    imu_ts = imu.ts;
+    vals = imu.vals;
+    cam = load('./P2_TEST/cam_test.mat');
+    cam_ts = cam.ts;
+    cam = cam.cam;
+end
 
 
 %% plot data
@@ -52,14 +65,14 @@ if verbose
         %end
     end
 end
-
-%% plot the vicon angular velocity
-Rd = zeros(3,3,length(rots)-1);
-for i = 2:length(rots)
-    Rd = rots(:,:,i-1)'*rots(:,:,i);
-    r = vrrotmat2vec(Rd);
+if ~test
+    %% plot the vicon angular velocity
+    Rd = zeros(3,3,length(rots)-1);
+    for i = 2:length(rots)
+        Rd = rots(:,:,i-1)'*rots(:,:,i);
+        r = vrrotmat2vec(Rd);
+    end
 end
-
 
 %% Calibrate the IMU data
 
@@ -83,7 +96,7 @@ w = [vals(5:6,:);vals(4,:)];
 w = bsxfun(@minus, w, wbias)*wscale;
 
 calibrated_vals = [acc; w];
-verbose =1;
+verbose =0;
 if verbose
     figure()
     plot(imu_ts, acc(1,:), imu_ts, acc(2,:), imu_ts, acc(3,:));

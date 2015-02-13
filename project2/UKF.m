@@ -18,9 +18,11 @@ P(:,:,1) = eye(6);
 Q = eye(6); %process noise covariance (mean = 0)
 R = eye(6); % measurement noise covariance (mean = 0)
 
-for i = 2:length(imu_ts)
+for i = 2:length(imu_ts)-1
     tic;
     disp(['iteration', num2str(i)]);
+    measurement = calibrated_vals(:,i); %actual measurement
+
     %%%%%%%%%%%%%%%  start of prediction step  %%%%%%%%%%%%%%%%%%%%%
     % calculate sigma points:
     %S = chol(P(:,:,i)+Q,'upper'); % Cholesky Decomposition
@@ -45,6 +47,7 @@ for i = 2:length(imu_ts)
         q_delta = omega2quatdelta(omega, delta_t);
         q_new = quat_mult(q,q_delta); % transpose everything because the function takes in row vectors
         omega_new = omega; %stays the same according to model
+        omega_new = measurement(4:6);
         Y(:,j) = [q_new;omega_new];
     end
     %Compute the mean of Y into W' (quaternions and angular vel are treated
@@ -84,9 +87,9 @@ for i = 2:length(imu_ts)
     Pzz = cov(Z'); %[6x6]
     
     %calculate innovation and covariance
-    measurement = calibrated_vals(:,i); %actual measurement
     measurement(4:6) = measurement(4:6)*(180/pi);
-    v = measurement - Z_bar; %innovation
+    %v = measurement - Z_bar; %innovation
+    v = measurement - measurement; %innovation
     Pvv = Pzz + R; %[6x6]
     
     %compute cross-correlation matrix
@@ -100,25 +103,19 @@ for i = 2:length(imu_ts)
     K_q = rot2quat(update(1:3));
     x(1:4,i+1) = quat_mult(x_hat_bar(1:4),K_q); %quaternion product
     x(5:7,i+1) = x_hat_bar(5:7) + update(4:6);
-    P(:,:,i+1) = P_bar - K*Pvv*K';
-    pause(delta_t - toc);
+    %P(:,:,i+1) = P_bar - K*Pvv*K';
+    P(:,:,i+1) = P_bar;
     
+    
+    kf_R(:,:,i) = quat_to_rot(x(1:4,i+1));
     verbose = 1;
-    
-    if verbose
-        
-        only_pred =0;
-        if(only_pred)
-            x(:,i+1) = x_hat_bar;
-            P(:,:,i+1) = P_bar;
-        end
-        
-        x(:,i+1)
-        P(:,:,i+1)
+    if verbose   
+        x(:,i+1);
         t = imu_ts(i);
-        [min_val, ind] = min(vicon_ts - t);
+        [min_val, ind] = min(abs(vicon_ts - t));
         vicon_R = rots(:,:,ind);
-        kf_R = quat_to_rot(x(1:4,i+1));
-        h = newrotplot2(kf_R, vicon_R, h);
+        h = newrotplot2(kf_R(:,:,i), vicon_R, h);
+        title(imu_ts(i)-imu_ts(1));
     end
+    pause(delta_t - toc);
 end

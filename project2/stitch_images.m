@@ -24,17 +24,15 @@ w_y = (pixy-imh/2)/imh*(sy/f);
 
 world = [ones(1,imh*imw); -w_x;-w_y];
 R_0 = eye(3);
-for i=1:length(rots)
+for i=1:length(cam_ts)-20
     t=cam_ts(i);
     [min_val, ind] = min(abs(imu_ts - t));
     I = cam(:,:,:,i);
     %R = rots(:,:,ind);
     R = kf_R(:,:,ind);
-
-
     
     %transform the vector image
-   % R_bias = [-1 0 0; 0 0 1;0 1 0];
+    % R_bias = [-1 0 0; 0 0 1;0 1 0];
     t_r =R*world;
     azimuth = atan2(t_r(2,:), t_r(1,:)); %radians
     elevation = atan2(t_r(3,:), sqrt(t_r(1,:).^2 + t_r(2,:).^2));%radians
@@ -48,6 +46,7 @@ for i=1:length(rots)
     
     set(hand, 'CData', rot90(pano,2));
     drawnow;
+    %pause(0.05);
 end
     
 
