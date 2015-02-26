@@ -2,7 +2,7 @@
 close all;
 
 %%  load data (x6)
-if ~exist('train_data')
+%if ~exist('train_data')
     disp('loading data...');
     train_classes = [1,2,3,4,5,6];
     dcols = [2 3 4];
@@ -10,9 +10,9 @@ if ~exist('train_data')
     train_dir = dir('./train/');
     [train_data, class_labels] = load_data(train_dir, train_classes, train_inds, dcols); %should be concatenated
     
-end
+%end
 %% Kmeans on data to get discrete state
-if ~exist('all_data')
+%if ~exist('all_data')
     all_data = [];
     for i=1:length(train_classes)
         all_data = [all_data; train_data(i).trials];
@@ -25,23 +25,23 @@ if ~exist('all_data')
 %         train_data(i).trials = (train_data(i).trials - mean_d)/std_d;
 %     end
     
-    K = 45;
+    K = 50;
     [labels, centroids] = kmeans(all_data, K); %kmeans on the acceleration
-end
+%end
 
-%% plot kmeans
-color_set = varycolor(K);
-figure();
-hold on;
-grid on;
-title('KMeans Classification of Dataset');
-xlabel('a_x'); ylabel('a_y'); zlabel('a_z');
-for i=1:K
-    plot3(all_data(labels == i,1), all_data(labels == i,2), all_data(labels == i,3),'.', 'Color', color_set(i,:)');
-end
-hold off;
+% %% plot kmeans
+% color_set = varycolor(K);
+% figure();
+% hold on;
+% grid on;
+% title('KMeans Classification of Dataset');
+% xlabel('a_x'); ylabel('a_y'); zlabel('a_z');
+% for i=1:K
+%     plot3(all_data(labels == i,1), all_data(labels == i,2), all_data(labels == i,3),'.', 'Color', color_set(i,:)');
+% end
+% hold off;
 %% for all the train
-Ns = 8*ones(1,6);
+Ns = 10*ones(1,6);
 pis = {};
 As = {};
 Bs = {};
@@ -76,7 +76,7 @@ for class=1:length(train_classes)
     %l = eval_model(Pi, A, B, O);
     %% Baum-Welch to learn model parameters (x6)
     disp('Baum Welch');
-    max_iters = 100;
+    max_iters = 50;
     thres = 1e-4;
     logprob_old = 0;
     for i=1:max_iters
@@ -88,7 +88,7 @@ for class=1:length(train_classes)
         [state_seq, logprob] = MLEstateseq(Pi, A, B, O);
         fprintf('    logprob = %f \n', logprob);
         if i > 3 && ((logprob - logprob_old < thres*logprob_old) || logprob < logprob_old)
-            fprintf('converged! \n');
+            %fprintf('converged! \n');
             break;
         end
         logprob_old = logprob;
@@ -98,5 +98,4 @@ for class=1:length(train_classes)
     Bs{class} = B;
     
 end
-
 

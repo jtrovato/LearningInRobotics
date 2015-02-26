@@ -1,0 +1,13 @@
+test1.txt: predicted: wave | confidence: 7.873485 | rank: wave, inf, eight, beat4, beat3, circle 
+test10.txt: predicted: circle | confidence: 2.541817 | rank: circle, beat4, eight, beat3, wave, inf 
+test11.txt: predicted: inf | confidence: 7.870257 | rank: inf, eight, beat3, beat4, wave, circle 
+test12.txt: predicted: beat4 | confidence: 1.630154 | rank: beat4, beat3, eight, wave, inf, circle 
+test2.txt: predicted: beat4 | confidence: 1.290970 | rank: beat4, beat3, eight, wave, circle, inf 
+test3.txt: predicted: eight | confidence: 8.725136 | rank: eight, inf, beat4, beat3, wave, circle 
+test4.txt: predicted: beat3 | confidence: 1.031193 | rank: beat3, beat4, eight, wave, inf, circle 
+test5.txt: predicted: wave | confidence: 10.606894 | rank: wave, inf, eight, beat4, beat3, circle 
+test6.txt: predicted: inf | confidence: 10.144258 | rank: inf, eight, beat3, beat4, wave, circle 
+test7.txt: predicted: eight | confidence: 8.701482 | rank: eight, inf, beat3, wave, beat4, circle 
+test8.txt: predicted: circle | confidence: 17.386775 | rank: circle, beat4, eight, beat3, inf, wave 
+test9.txt: predicted: beat3 | confidence: 1.008103 | rank: beat3, beat4, eight, wave, circle, inf 
+

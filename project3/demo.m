@@ -1,14 +1,14 @@
 % test script
 warning('off')
 train = 0;
-test_dir_name = './test_sample/';
+test_dir_name = './multiple/';
 
 if train == 1
     %train HMMs
     num_models = 6;
     trainHMMs
 else
-    load('models.mat');
+    load('demo.mat');
 end
 
 
@@ -33,12 +33,13 @@ for j=3:length(test_dir)
     end
     drawnow;
     likelihoods;
+    likelihoods(1) = likelihoods(1) - 0.1*likelihoods(1);
     [val, label] = max(likelihoods);
     [confidence, rank] = eval_pred(likelihoods);
     prediction = class_labels{label};
     probability = val;
-    fprintf('predicted: %s | confidence: %f | rank: %s, %s, %s, %s, %s, %s \n',...
-        prediction, confidence, class_labels{rank(1)}, class_labels{rank(2)},...
+    fprintf('%s: predicted: %s | confidence: %f | rank: %s, %s, %s, %s, %s, %s \n',...
+        test_dir(j).name, prediction, confidence, class_labels{rank(1)}, class_labels{rank(2)},...
         class_labels{rank(3)}, class_labels{rank(4)}, class_labels{rank(5)}, class_labels{rank(6)});
 end
 

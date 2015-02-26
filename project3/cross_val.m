@@ -3,12 +3,12 @@ warning('off')
 
 vs = 1:5;
 train_inds = [];
-for v=vs
+for v=1:10
     fprintf('fold = %i \n', v);
     %train HMMs
     num_models = 6;
-    train_inds = vs(vs ~=v);
-    test_inds = v;
+    test_inds = round(5*rand());
+    train_inds = vs(vs ~= test_inds);
     trainHMMs
 
     %load test data

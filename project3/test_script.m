@@ -1,6 +1,6 @@
 % test script
 warning('off')
-train = 0;
+train = 1;
 
 if train == 1
     %train HMMs
