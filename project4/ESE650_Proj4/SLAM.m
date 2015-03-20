@@ -55,7 +55,8 @@ gridx_offsets = -1:1;
 gridy_offsets = -1:1;
 H = getH(0, 0, 0, 0, 0, 0);
 previous_pose = [0 0 0];
-s = lidar{1}.pose';
+theta0 = lidar{1}.rpy(3);
+s = [lidar{1}.pose(1:2), theta0]';
 
 %plot all the things:
 figure();
@@ -70,7 +71,7 @@ g = plot(0, 0, 'g.', 'MarkerSize', 1);
 
 s_hist = s;
 %% run in time
-for i=10:10:numel(ts)
+for i=20000:10:numel(ts)
 
     %get data and match up times
     t = ts(i); %taken from joints which is relative time
@@ -79,6 +80,7 @@ for i=10:10:numel(ts)
     [~,idx] = min(abs(ts_l - t));
     pose = lidar{idx}.pose; %[x,y,theta]
     rpy = lidar{idx}.rpy';
+    theta = rpy(3)-theta0;
     %get the correct joint angles (these use the joint time)
     head_angles = [pos(i,iNeck), pos(i,iHead)]; %[yaw, pitch]
     % remove noisy data out of valid range
@@ -90,7 +92,7 @@ for i=10:10:numel(ts)
     
     % LOCALIZATION -- PARTICLEish FILTER IMPLEMENTATION
     %generate "school of fish" particles
-    ds = pose - previous_pose;
+    ds = [pose(1:2) - previous_pose(1:2), theta - previous_pose(3)];
     
     theta_offsets = normrnd(0, abs(ds(3)), [1, 5]);
     particle_weights = zeros(length(gridy_offsets), length(gridx_offsets), length(theta_offsets));
@@ -105,7 +107,7 @@ for i=10:10:numel(ts)
     [max_cor, max_ind] = max(reshape(particle_weights, numel(particle_weights), 1));
     [idx, idy, idz] = ind2sub(size(particle_weights), max_ind);
     fprintf('%f     %i ,%i, %i    ', range(theta_offsets), idx, idy, idz);
-    master_particle = [s(1)+gridx_offsets(idx)*res, s(2)+gridy_offsets(idy)*res, s(3)+theta_offsets(idz)*res]';
+    master_particle = [s(1)+gridx_offsets(idx)*res, s(2)+gridy_offsets(idy)*res, s(3)+theta_offsets(idz)]';
     s = master_particle;
     
     %rotation and translation homographies (after the master particle)
@@ -132,19 +134,18 @@ for i=10:10:numel(ts)
     vects_w(:, vects_w(2,:) < ymin | vects_w(2,:) > ymax) = [];
     
     ogrid(sub2ind(size(ogrid), round((vects_w(1,:)-xmin)/res), round((vects_w(2,:)-ymin)/res))) = ...
-        ogrid(sub2ind(size(ogrid), round((vects_w(1,:)-xmin)/res), round((vects_w(2,:)-ymin)/res))) + 5*inc;
+        ogrid(sub2ind(size(ogrid), round((vects_w(1,:)-xmin)/res), round((vects_w(2,:)-ymin)/res))) + 10*inc;
 
     between = [];
-    xs = round((pose(1)-xmin)/res);
-    ys = round((pose(2)-ymin)/res);
+    xs = round((s(1)-xmin)/res);
+    ys = round((s(2)-ymin)/res);
     for j=1:100:numel(vects_w(3,:))-100;
 
         xf = (vects_w(1,j:j+99)-xmin)/res;
         yf = (vects_w(2,j:j+99)-ymin)/res;
-        xs = repmat(xs, size(xf));
-        ys = repmat(ys, size(yf));
+
         
-        [x_between, y_between] = getMapCellsFromRay(double(xs),double(ys),double(xf),double(yf));
+        [x_between, y_between] = getMapCellsFromRay(repmat(xs, size(xf)),repmat(ys, size(yf)),double(xf),double(yf));
         x_between(x_between <= 0) = [];
         y_between(y_between <= 0) = [];
         %between = unique([x_between, y_between], 'rows');
@@ -153,8 +154,8 @@ for i=10:10:numel(ts)
             ogrid(sub2ind(size(ogrid),between(:,1), between(:,2))) - inc;
     end
     %limit the occupancy grid
-    ogrid(ogrid < -3) = -3;
-    ogrid(ogrid > 3) = 3;
+    ogrid(ogrid < -2) = -2;
+    ogrid(ogrid > 2) = 2;
     [occupied_i, occupied_j] = find(siglim(ogrid) > occ_thres);
     
     %plotting
@@ -162,9 +163,9 @@ for i=10:10:numel(ts)
     %set(o, 'XDATA', (occupied_i*res)+xmin, 'YDATA', (occupied_j*res)+ymin);
     set(g, 'XDATA', round((vects_w(2,:)-ymin)/res), 'YDATA', round((vects_w(1,:)-xmin)/res));
     set(h, 'XDATA', round((Tr(2,:)-ymin)/res), 'YDATA', round((Tr(1,:)-xmin)/res));
-    if(mod(i, 50) == 0)
+    if(mod(i, 25) == 0)
         pause(0.025);
     end
-    previous_pose = pose;
+    previous_pose = [pose(1:2), theta];
     s_hist = [s_hist, s];
 end
