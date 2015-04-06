@@ -12,9 +12,11 @@ else
 end
 [~,~,d] = size(F);
 %% Generate Training Paths (or load it)
+verbose =1;
 if verbose
     imshow(I);
-    train_paths = getTrainingPaths(5, I);
+    pause
+    train_paths = getTrainingPaths(5);
 else
     load('paths.mat')
 end
@@ -58,6 +60,7 @@ while diff > delta
     end
     %calculate cost
     cost = desired_grad - optimal_grad;
+    fprintf('iteration: %i,   cost: %f', i, cost);
 
     %update the weights
     weights_new = weights - (1/i)*learning_rate*cost;
@@ -68,4 +71,6 @@ while diff > delta
     i = i+1
 end
     
-    
+
+%% Testing
+
