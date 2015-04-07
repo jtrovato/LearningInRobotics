@@ -1,29 +1,43 @@
 %demo script
-verbose = 0;
 
-%%
+%% Load Image
 I = imread('../aerial_color.jpg');
-I = imresize(I, 0.5);
+I = imresize(I, 0.125);
 %% Generate Features (or load it)
+verbose = 1;
 if verbose
     F = generate_features(I);
 else
     load('feats.mat');
 end
-[~,~,d] = size(F);
+[~,d] = size(F);
 %% Generate Training Paths (or load it)
-verbose =1;
+verbose = 0;
 if verbose
     imshow(I);
     pause
     train_paths = getTrainingPaths(5);
 else
     load('paths.mat')
+    num_paths = length(paths);
+    for i=1:num_paths
+        paths{i} = unique(round(paths{i}/4), 'rows', 'stable');
+    end
 end
-num_paths = length(paths);
+
+%% Plot training paths
+figure();
+imshow(I);
+hold on
+for i=1:num_paths
+    path = paths{i};
+    plot(path(:,1), path(:,2), 'g', 'MarkerSize', 1);
+    
+end
+
 %% Generate Cost Map (or load it)
 a = ones(d,1)';
-c = generateCostMap(a, F);
+C = generateCostMap(a, F);
 
 %% Dijkstra Stuff
 
@@ -33,42 +47,81 @@ c = generateCostMap(a, F);
 % cost is defined as an exponential so derivative is easy
 % parameter being optimized = weights on features
 delta = 1e-3;
+cost_hist = [];
 learning_rate = 1;
 diff = 1;
-weights = (1/d)*ones(d,1);
+weights_hist = (1/d)*ones(d,1)';
+[m,n] = size(I(:,:,1));
 
-i=0;
-CMap = reshape(C,size(I));
+i=1;
 while diff > delta
+    tic;
+    CMap = double(reshape(generateCostMap(weights, F), size(I(:,:,1))));
     desired_grad = 0;
+    desired_cost = 0;
     optimal_grad = 0;
+    optimal_cost = 0;
     for p=1:num_paths
+        fprintf('.')
         %the desired path
-        path = paths{i};
+        path = round(paths{p});
         %generate Dijkstra optimal path using same start and end as desired
-        cost_to_go = dijkstra_matrix(CMap,path(end,1),path(end,2));
-        [ip, jp] = dijkstra_path(ctg, costs, path(1,1), path(1,2));
+        xmax = min(max(path(:,1))+10, n);
+        xmin = max(min(path(:,1))-10, 1);
+        ymax = min(max(path(:,2))+10, m);
+        ymin = max(min(path(:,2))-10, 1);
+        cost_to_go = dijkstra_matrix(CMap(ymin:ymax,xmin:xmax),path(end,2)-ymin+1,path(end,1)-xmin+1);
+        [yp, xp] = dijkstra_path(cost_to_go, CMap(ymin:ymax,xmin:xmax), path(1,2)-ymin+1, path(1,1)-xmin+1);
+        xp_actual = yp+ymin-1;
+        yp_actual = xp+xmin-1;
+        dijk = [yp_actual, xp_actual];
+        
+        verbose = 0;
+        if verbose 
+            imshow(CMap(ymin:ymax,xmin:xmax))
+            axis equal
+            hold on
+            plot(path(:,1)-xmin, path(:,2)-ymin, 'g', 'MarkerSize', 1);
+            plot(xp, yp, 'r', 'MarkerSize', 1);
+            title(['path ', num2str(p)]);
+            hold off
+            pause(0.025);
+        end
 
         %calculate desired path "gradient" (for each feature)
         for j=1:length(path)
-            desired_grad = desired_grad + C(path(j,1),path(j,2)).*F(path(j,1),path(j,2),:);
+            desired_grad = desired_grad + CMap(path(j,2),path(j,1)).*F(path(j,2)*m +path(j,1),:);
+            desired_cost = desired_cost + CMap(path(j,2),path(j,1));
         end
         %calculate optimal path "gradient" 
-        for j=1:length(ip)
-            optimal_grad = optimal_grad + C(ip(j),jp(j)).*F(ip(j),jp(j),:);
+        for j=1:length(dijk)
+            optimal_grad = optimal_grad + CMap(dijk(j,2),dijk(j,1)).*F(dijk(j,2)*m +dijk(j,1), :);
+            optimal_cost = optimal_cost + CMap(path(j,2),path(j,1));
         end
     end
     %calculate cost
-    cost = desired_grad - optimal_grad;
-    fprintf('iteration: %i,   cost: %f', i, cost);
+    cost = desired_cost - optimal_cost; %scaler
+    grad = desired_grad - optimal_grad; % [dx1]
+    
 
     %update the weights
-    weights_new = weights - (1/i)*learning_rate*cost;
+    weights_new = weights - (1/i)*learning_rate;
     weights_new = weights_new/norm(weights_new);
-
+    
     diff = sum(abs(weights_new-weights));
     weights = weights_new;
-    i = i+1
+    weights_hist = [weights_hist; weights];
+    cost_hist = [cost_hist; cost];
+    
+    subplot(2,1,1);
+    plot(weights_hist);
+    subplot(2,1,2);
+    plot(cost_hist);
+    
+    fprintf('iteration: %i,   cost: %f \n', i, cost);
+    toc
+    i = i+1;
+
 end
     
 
