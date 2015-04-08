@@ -1,50 +1,78 @@
 function F = generate_features(I)
 %a script to generate features from the aerial image
 
-Ig = single(rgb2gray(I));
+Ig = rgb2gray(I);
 [m,n] = size(Ig);
-d = 3+1+3+3+4+1;
+
 
 %HSV
 %Ihsv = single(rgb2hsv(I));
 %YCbCr
-Iycbcr = single(rgb2ycbcr(I));
+Iycbcr = rgb2ycbcr(I);
+%Lab
+Ilab = rgb2lab(I);
 
-%gradient map
-[grad_mag, grad_dir] = imgradient(Ig);
-grad_mag = single(grad_mag);
-grad_dir = single(grad_dir);
 
-%edge detection
-canny = single(edge(Ig, 'canny'));
+% %edge detection
+% canny = single(edge(Ig, 'canny'));
+% G = fspecial('gaussian',[5 5],2);
+% canny_blur = imfilter(canny, G, 'same');
+% 
+% %textures - convolution filters
+% %Irange_rgb = single(rangefilt(I));
+% Irange_gr = single(rangefilt(Ig));
+% Ientrop = single(entropyfilt(Ig));
+% Istd = single(stdfilt(Ig, ones(5)));
 
-%connected components
-thres = 70;
-Ibin = single(zeros(size(Ig)));
-Ibin(Ig > thres) = 1;
-%CC = bwconncomp(Ig);
-
-%textures - convolution filters
-Irange_rgb = single(rangefilt(I));
-Irange_gr = single(rangefilt(Ig));
 
 %Hough transform
 
-%Kmeans
+% %Kmeans
+% k1=8;
+% cim = reshape(double(Iycbcr),[], 3); 
+% [cluster_idx1, cluster_center] = kmeans(cim,k1,'distance','sqEuclidean');
+% pixel_labels1 = reshape(cluster_idx1, size(I(:,:,1)));
+% imagesc(pixel_labels1);
+% axis equal
+% %binarize clusters
+% cluster_bins1 = zeros(m,n,k1);
+% for i=1:k1
+%     cluster_bins1(:,:,i) = (pixel_labels1 == i);
+% end
 
-F = single(zeros(m*n,d));
-F(:,1:3) = reshape(I, [], 3);
-F(:,4) = Ig(:);
-F(:,5) = grad_mag(:);
-F(:,6) = grad_dir(:);
-F(:,7) = canny(:);
-F(:,8) = Ibin(:);
-F(:,9:11) = reshape(Iycbcr, [], 3);
-F(:,12:14) = reshape(Irange_rgb, [], 3);
-F(:,15) = Irange_gr(:);
+k2=5;
+cim = reshape(Ilab(:,:,2:3),[],2); 
+[cluster_idx2, cluster_center] = kmeans(cim,k2,'distance','sqEuclidean');
+pixel_labels2 = reshape(cluster_idx2, size(I(:,:,1)));
+imagesc(pixel_labels2);
+axis equal
+%binarize clusters
+cluster_bins2 = zeros(m,n,k2);
+for i=1:k2
+    cluster_bins2(:,:,i) = (pixel_labels2 == i);
+end
+
+% d = k1+k2+5;
+ F = zeros(m*n, k2+k2^2);
+% F(:,1:k1) = reshape(cluster_bins1, [], k1);
+% F(:,k1+1:k1+k2) = reshape(cluster_bins2, [], k2);
+% F(:,end-4) = Irange_gr(:);
+% F(:,end-3) = Ientrop(:);
+% F(:,end-2) = Istd(:);
+% F(:,end-1) = canny(:);
+% F(:,end) = canny_blur(:);
+
+F(:,1:k2) = reshape(cluster_bins2, [], k2);
+for j=1:k2
+    for i=1:k2
+        F(:,k2+j+i) = F(:,j).*F(:,i);
+    end
+end
 
 %maybe use a kernel here?
 
+
+%normalize the features:
 Fmean = mean(F,1);
 Fstd = std(F,0,1);
 F = bsxfun(@minus, F, Fmean);

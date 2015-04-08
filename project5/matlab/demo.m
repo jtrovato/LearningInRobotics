@@ -2,13 +2,13 @@
 
 %% Load Image
 I = imread('../aerial_color.jpg');
-I = imresize(I, 0.125);
+I = imresize(I, 0.25);
 %% Generate Features (or load it)
-verbose = 1;
+verbose = 0;
 if verbose
     F = generate_features(I);
 else
-    load('feats.mat');
+    load('color_seg_poly.mat');
 end
 [~,d] = size(F);
 %% Generate Training Paths (or load it)
@@ -21,7 +21,7 @@ else
     load('paths.mat')
     num_paths = length(paths);
     for i=1:num_paths
-        paths{i} = unique(round(paths{i}/4), 'rows', 'stable');
+        paths{i} = unique(round(paths{i}/2), 'rows', 'stable');
     end
 end
 
@@ -38,25 +38,30 @@ end
 %% Generate Cost Map (or load it)
 a = ones(d,1)';
 C = generateCostMap(a, F);
-
-%% Dijkstra Stuff
-
-
+figure();
+imagesc(reshape(C, size(I(:,:,1))));
 %% Gradient Descent 
 % Cost function = abs(C_desired - C_optimal)
 % cost is defined as an exponential so derivative is easy
 % parameter being optimized = weights on features
+close all;
+
 delta = 1e-3;
+lambda = 0;
 cost_hist = [];
-learning_rate = 1;
+learning_rate = 1e-4;
 diff = 1;
-weights_hist = (1/d)*ones(d,1)';
+weights = rand(1,d)-0.5;
+%weights = (1/d)*ones(1,d);
+weights_hist = weights;
 [m,n] = size(I(:,:,1));
 
 i=1;
 while diff > delta
     tic;
     CMap = double(reshape(generateCostMap(weights, F), size(I(:,:,1))));
+    %figure(3);
+    %imshow(CMap);
     desired_grad = 0;
     desired_cost = 0;
     optimal_grad = 0;
@@ -77,7 +82,8 @@ while diff > delta
         dijk = [yp_actual, xp_actual];
         
         verbose = 0;
-        if verbose 
+        if i > 0 && mod(p, 10) == 0
+            figure(1);
             imshow(CMap(ymin:ymax,xmin:xmax))
             axis equal
             hold on
@@ -96,7 +102,7 @@ while diff > delta
         %calculate optimal path "gradient" 
         for j=1:length(dijk)
             optimal_grad = optimal_grad + CMap(dijk(j,2),dijk(j,1)).*F(dijk(j,2)*m +dijk(j,1), :);
-            optimal_cost = optimal_cost + CMap(path(j,2),path(j,1));
+            optimal_cost = optimal_cost + CMap(dijk(j,2),dijk(j,1));
         end
     end
     %calculate cost
@@ -105,18 +111,26 @@ while diff > delta
     
 
     %update the weights
-    weights_new = weights - (1/i)*learning_rate;
-    weights_new = weights_new/norm(weights_new);
+    reg = weights/norm(weights);
+    discount = 1;
+    weights_new = weights -discount*learning_rate*(grad + lambda*reg) ;
     
     diff = sum(abs(weights_new-weights));
     weights = weights_new;
     weights_hist = [weights_hist; weights];
     cost_hist = [cost_hist; cost];
     
+    figure(2);
     subplot(2,1,1);
-    plot(weights_hist);
+    for l=1:d
+        plot(weights_hist(:,l));
+        hold on
+    end
+    hold off
     subplot(2,1,2);
     plot(cost_hist);
+    pause(0.025);
+    
     
     fprintf('iteration: %i,   cost: %f \n', i, cost);
     toc

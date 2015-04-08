@@ -11,6 +11,10 @@ cmin = 0.01; %no idea what to intialize this
 %second way
  C = bsxfun(@times, F, a);
  C = sum(C, 2);
+ Cmean = mean(C,1);
+ Cstd = std(C,0,1);
+ C = bsxfun(@minus, C, Cmean);
+ C = bsxfun(@rdivide, C,Cstd);
 
-C = cmin + exp(C);
+C = exp(C);
 end
