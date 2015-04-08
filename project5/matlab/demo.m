@@ -2,13 +2,13 @@
 
 %% Load Image
 I = imread('../aerial_color.jpg');
-I = imresize(I, 0.25);
+I = double(imresize(I, 0.25));
 %% Generate Features (or load it)
-verbose = 0;
+verbose = 1;
 if verbose
     F = generate_features(I);
 else
-    load('color_seg_poly.mat');
+    load('feats.mat');
 end
 [~,d] = size(F);
 %% Generate Training Paths (or load it)
@@ -26,8 +26,8 @@ else
 end
 
 %% Plot training paths
-figure();
-imshow(I);
+%figure();
+%imshow(I);
 hold on
 for i=1:num_paths
     path = paths{i};
@@ -47,12 +47,16 @@ imagesc(reshape(C, size(I(:,:,1))));
 close all;
 
 delta = 1e-3;
-lambda = 0;
+lambda = 1e-4;
 cost_hist = [];
-learning_rate = 1e-4;
+learning_rate = 1e-3;
 diff = 1;
-weights = rand(1,d)-0.5;
+%weights = rand(1,d)-0.5;
 %weights = (1/d)*ones(1,d);
+weights = zeros(1,d)
+weights(end) = 1;
+weights(end-1) = -1;
+weights(end-2) = -1;
 weights_hist = weights;
 [m,n] = size(I(:,:,1));
 
@@ -112,8 +116,10 @@ while diff > delta
 
     %update the weights
     reg = weights/norm(weights);
-    discount = 1;
-    weights_new = weights -discount*learning_rate*(grad + lambda*reg) ;
+    discount = (1/i);
+    weights_new = weights -discount*learning_rate*(grad + lambda*reg);
+    %weights_new = min(weights_new, 3);
+    %weights_new = max(weights_new, -3);
     
     diff = sum(abs(weights_new-weights));
     weights = weights_new;
