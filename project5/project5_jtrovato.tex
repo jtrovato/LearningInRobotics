@@ -1,0 +1,95 @@
+% ESE650 Learning in Robotics - Project 5
+
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{placeins}
+
+\definecolor{lightgray}{gray}{0.5}
+\setlength{\parindent}{0pt}
+\setcounter{secnumdepth}{0} %turn off section numbering
+\begin{document}
+
+\title{ESE650 Project5: Path Planning via Imitation Learning}
+\author{Joe Trovato}
+\date{\today}
+\maketitle
+\setlength{\parindent}{10ex}
+
+\section{Introduction}
+\par
+After completing last project, I could feasibly teach a robot how to map its environment and localize itself within that environment. After completing this project I can now instruct a robot how to move from one location to another given a map. In this case, the map was an aerial photo of the University of Pennsylvania campus. The first task was pull features out of this image that would help the robot differentiate terrain that it could navigate from areas that it would not be able to traverse. This involved searching a huge variety of features and selecting which were the most relevant or useful in diversifying the map. With the most salient features, a cost map could be developed. This cost map would then be used with an optimal planner such as Dijkstra's or A* to provide a path. Our task is to learn the cost map that most closely aligns the optimal path according to Dijkstra with the path that a human would take. The human element was introduced by hand labeling paths between popular and some not-so-popular destinations around campus. With this hand-labeled data we could then set up a machine learning technique to minimize the difference in cost between the generated path and the hand labeled path. 
+
+\section{Algorithm}
+\subsection{Feature Selection}
+\par
+Feature Selection is arguably the most important part of this project and most machine learning problems. The features are the forms of the data which best exemplify the trends which are being learned. There are tons of ways to represent and image and even more ways to pull out specific information from them. An incomplete list is as follows: RGB, HSV, YCbCr, LAB, kmeans color segmentation, std filter, range filter, entropy filter, color space thresholds, edges, texture matching, texture segmentation, and many more alterations. 
+\par
+To succeed in this project, only the features that encoded useful data about the real world were chosen. As confirmed in the first project, any RGB-based features were pretty useless; because of this one the first thing I did was convert the color space to HSV and LAB color spaces. With a useful encoding of color of color, simple threshold could be set up to get different parts of a map, such as trees vs. brick. Taking this notion a step further, using kmeans to segment on the colors gave an even better idea of where similar objects lied. With color giving a general idea of how the map is structured, canny edges can be used to further enforce those boundaries. Similarly, Canny edge also encodes bits of texture data. Texture is another important aspect of understanding a map. Roofs are generally smooth, but roads have lots of dotted lines and usually more rough. After blurring the edges and thresholding, I got an idea of the texture in a local area. I also used imdilate() and imerode() to play with these features in an attempt to get better results. 
+\par
+After an arduous search for the best features, I have decide to use the follow features which encode the most map information (and yield the best results).
+\\
+\\
+Best Features:
+\begin{enumerate}
+\item Binarized Color Segmentation (k=6)
+\item HSV Color Thresholds (3 or 4 partitions)
+\item Canny Edges (dilated and blurred as well)
+\end{enumerate}
+
+\subsection{Training Set Generation}
+\par
+The training sets were generated using the improfile tool. My algorithm simply lets the user specify the number of paths and prompts them to create the path by specifying control points. I labeled 40 paths for walking and 15 paths for driving. These were considered the expert paths from which the algorithm would try to match. These training sets varied drastically, which would prove important for learning the rules of walking compared to the rules of cars. 
+
+\subsection{Path Planning}
+\par
+Optimal path planning algorithms were given to us to use in our learning algorithm. Implementations of Dijkstra's and A* were provided, but I found Dijkstra's easier to work with because it does not require an adjacency matrix. It is good to note that Dijkstra's was very slow on a large images. To combat this, I cropped the full image to fit the current path, reducing the total search space. 
+\par
+The hard part about path planning is generating a cost map that closely resembles real word costs at a specific location. If costs are equal everywhere, the path planner will find a straight line path between the start and goal. In the real world this only works if you can fly. The features and hand labeled "low cost" paths from the training sets will attempt to learn the real world features so that our cost map is accurate. Since Dijkstra's finds the optimal path given any given cost map, if the cost map is representative of real worlds costs then the paths generated by Dijkstra will be also be characteristic of real paths.
+
+\subsection{Imitation Learning} 
+Learning the correct cost map is best done through a method called imitation learning. Generally imitation learning is reducing the difference between the robots "optimal" action and the desired action by adjusting the cost for different actions. In this case, we use gradient descent to find the feature weights that minimize the total cost difference between the 
+
+\subsubsection{Cost Function}
+\par 
+The cost function for imitation learning is usually some difference between optimal action and desired action. meaning what the robot is doing and what you want the robot to do. For our case, this is the difference of the Dijkstra path cost and the hand labeled cost. 
+$$ C(i) = \sum_{p=1}^{P} \left( \sum_{x_o,y_o = start}^{end}CostMap(x_o,y_o) - \sum_{x_d,y_d = start}^{end}CostMap(x_d,y_d) \right) $$
+where i is the iteration, subscript o denote optimal path, and subscript d represents desired path.
+\\
+\par
+While this gives an idea of how well the algorithm is matching the human paths, it does not affect how the algorithm converges. The Cost function used in gradient descent, $J(\theta)$, encodes the current generated path to the optimal cost path in the given cost map.
+
+$$J(\theta) = $$
+
+\subsubsection{Gradient Descent}
+The learning algorithm used was gradient descent. 
+
+
+
+\subsection{Evaluation: Convergence vs. Cost Function}
+\par
+The evaluation of this project was interesting and deserves some thought. Instead of having some accuracy or identification task, we are asked to evaluate the quality of a path. Quality of a path can be defined in many different ways: it depends on the vehicle, and whether you prefer time or distance optimized, etc. The point being, it is difficult to determine which paths are objectively better. In the case of this project, staying on the roads or sidewalks or even swinging from tree to tree is acceptable. Avoiding building an other impassable objects is really the objective. 
+\par
+Imitation learning specifies the quality of learning as how closely the robot can imitate the "expert". As described above, we updated the weight vector the specifies the cost map in order to attempt to get training and test paths to align. The problem with this method is that the lowest cost path is usually not the desired path and there are often many ways between two points with similar costs. I found that the gradient of the features did not always correspond to lower costs. I believe this is due to a disparity between the cost map from which dijkstra's is calculated and the cost function used to determine convergence. The cost difference between the desired path and the "optimal" path generated by dijkstra's  did not always correspond to the best path. I found that the gradient descent would often find paths that I deemed as acceptable if not better than the hand labeled path. This was interesting, because after making this realization, I was able to trust the cost less and tune my gradient descent with respect to both distance from desired and reasonable path. I realize that this method undermines the purpose of imitation learning, but the best evaluation method I found was to weigh difference between desired and actual and humanly judge the feasibility of the generate path.
+\par
+With respect to this metric, my algorithm performed decently. It was generally able to avoid building and roads when walking and realized that the trees were usually fine to walk under. Sometimes, the robot would attempt to hop a fence that it could not see from the aerial photo or take the "road less travelled", but I believe that most of the paths it generated were feasible.
+\section{Results}
+We'll see when the test set comes out...
+
+\section{Demo Instructions}
+\begin{enumerate}
+	\item Change the proper initialization variables at the top of demo.m. You can adjust whether to generate the features or preload an existing set; you can draw your own training paths or load the ones I used to train on. Finally, you can select to train an optimized cost map or to load one that I previously trained. The default is to load, since it is astronomically faster. 
+	\par
+	There is also a variable to select whether you will driving (driving=1) or walking (driving=0).
+
+	\item Run demo.m
+	\item A map will pop up and ask you to select two points. Once you select the second point the ideal path according to the modality you selected will be outlined in red. Press any key to draw another, up to to 10.
+
+\end{enumerate}
+
+
+
+\end{document}
