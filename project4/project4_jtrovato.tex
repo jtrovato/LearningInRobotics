@@ -1,0 +1,48 @@
+% ESE650 Learning in Robotics - Project 4
+
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{placeins}
+
+\definecolor{lightgray}{gray}{0.5}
+\setlength{\parindent}{0pt}
+\setcounter{secnumdepth}{0} %turn off section numbering
+\begin{document}
+
+\title{ESE650 Project 4: Simultaneous Localization and Mapping}
+\author{Joe Trovato}
+\date{\today}
+\maketitle
+\setlength{\parindent}{10ex}
+
+\section{Introduction}
+Simultaneous and Localization and Mapping (SLAM) is a core problem in robotics. The ability to sense the surrounding environment and determine where the robot is within that environment is essential to a variety of tasks. In this project, I implemented a basic SLAM algorithm using a particle filter to track location and an probabilistic occupancy grid to keep track of the map. Once SLAM was working (to an acceptable level of accuracy), I used the RGB data taken from the camera to map color to the floor displayed in my occupancy grid. 
+
+
+\section{Algorithm}
+\subsection{Data Preprocessing}
+The dataset given contained a variety of information, most of which  I did not incorporate into the project. My implementation uses the lidar readings, the head and neck joint angles, and their respective time stamps. For the final part of the project I used the RGB data contained in the kinect data file to map color to the floor. 
+ 
+\subsection{Mapping}
+After experimenting with naive algorithm for a binary occupancy grid, I implemented a logistic occupancy grid which tracked a probability of being occupied for each grid square. 
+
+\subsection{Localization}
+\subsubsection{Particle Filter}
+
+\section{Results}
+
+
+\section{Demo Instructions}
+\begin{enumerate}
+	\item Specify test files for lidar and joints by editing files names at top of SLAM.m
+	\item change dataset variable at top of SLAM.m to correct number
+	\item run SLAM.m, map should display
+
+\end{enumerate}
+
+
+\end{document}
