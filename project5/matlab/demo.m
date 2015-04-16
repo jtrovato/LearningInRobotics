@@ -1,21 +1,21 @@
 %demo script
 
 %% Load Image
-driving = 1;
+driving = 0;
 gen_feats = 0;
-train = 1;
+gen_paths = 0;
+train = 0;
 I = imread('../aerial_color.jpg');
-I = double(imresize(I, 0.25))/255;
+I = imresize(I, 0.25);
 %% Generate Features (or load it)
 if gen_feats
     F = generate_features(I);
 else
-    load('feats.mat');
+    load('feats (1).mat');
 end
 [~,d] = size(F);
 %% Generate Training Paths (or load it)
-verbose = 0;
-if verbose
+if gen_paths
     imshow(I);
     pause
     train_paths = getTrainingPaths(10);
@@ -23,9 +23,9 @@ else
     if driving
         load('drivingpaths.mat')
         num_paths = length(driving_paths);
-        paths = cell();
+        paths = cell(num_paths, 1);
         for i=1:num_paths
-            paths{i} = unique(round(driving_paths{i}/2), 'rows', 'stable');
+            paths{i} = unique(round(driving_paths{i}), 'rows', 'stable');
         end
     else
         load('paths.mat')
@@ -38,14 +38,14 @@ else
 end
 
 %% Plot training paths
-% figure();
-% imshow(I);
-% hold on
-% for i=1:num_paths
-%     path = paths{i};
-%     plot(path(:,1), path(:,2), 'g', 'MarkerSize', 1);
-%     
-% end
+figure();
+imshow(I);
+hold on
+for i=1:num_paths
+    path = paths{i};
+    plot(path(:,1), path(:,2), 'g', 'MarkerSize', 1);
+    
+end
 
 % %% Generate Cost Map (or load it)
 % a = ones(d,1)';
@@ -103,7 +103,7 @@ if train
             dijk = [yp_actual, xp_actual];
 
             verbose = 0;
-            if i > 0 && mod(p, 9) == 0
+            if i > 2 && mod(p, 1) == 0
                 figure(1);
                 imshow(CMap(ymin:ymax,xmin:xmax))
                 axis equal
@@ -158,7 +158,11 @@ if train
 
     end
 else
-    load('CMap');
+    if driving
+        load('driving_CMap.mat');
+    else
+        load('CMap2.mat');
+    end
 end
     
 
