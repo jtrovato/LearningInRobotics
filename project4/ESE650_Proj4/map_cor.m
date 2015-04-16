@@ -8,7 +8,16 @@ function val = map_cor(ogrid, vects_w, s_off, xmin, ymin, xmax, ymax, res)
     vects_w_r(:, vects_w_r(1,:) < xmin | vects_w_r(1,:) > xmax) = [];
     vects_w_r(:, vects_w_r(2,:) < ymin | vects_w_r(2,:) > ymax) = [];
     %map the points to o-grid coordinates
-    inds = sub2ind(size(ogrid), round((vects_w_r(1,:)-xmin)/res), round((vects_w_r(2,:)-ymin)/res));
+    %max([round((vects_w_r(1,:)-xmin)/res), round((vects_w_r(2,:)-ymin)/res)])
+    %min([round((vects_w_r(1,:)-xmin)/res), round((vects_w_r(2,:)-ymin)/res)])
+
+    xinds = round((vects_w_r(1,:)-xmin)/res);
+    %xinds(xinds < xmin | xinds > xmax) = [];
+    yinds = round((vects_w_r(2,:)-ymin)/res);
+    %yinds(yinds < ymin | yinds > ymax) = [];
+
+    
+    inds = sub2ind(size(ogrid), xinds, yinds);
     val = sum(ogrid(inds));
 end
 

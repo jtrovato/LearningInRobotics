@@ -3,14 +3,20 @@ close all;
 
 %% load the data
 verbose = 1;
+dataset = 2;
 if verbose
-    load joints0.mat
-    load lidar0.mat
+    load joint.mat
+    if dataset == 2
+        pos = pos';
+        t0 = ts(1);
+    end
+    load lidar.mat
     ts_l = zeros(numel(lidar), 1);
     for i=1:numel(lidar)
         ts_l(i) = (lidar{i}.t -t0); %make the lidar time on the same scale as the joint time
     end
-    load depth0.mat
+    %load depth2.mat
+
 end
 
 %% initialization
@@ -19,10 +25,10 @@ thetas = thetas*pi/180;
 num_angs = length(thetas);
 rots = zeros(2,2,num_angs);
 
-xmin = -15;
-xmax = 15;
-ymin = -15;
-ymax = 15;
+xmin = -30;
+xmax = 30;
+ymin = -30;
+ymax = 30;
 zmin = -2;
 zmax = 3;
 
@@ -44,15 +50,15 @@ T = [0.7, 0, 0
 
 %2D occupancy grid:
 res = 0.05;
-inc = 0.05;
+inc = 0.01;
 occ_thres = 0.8;
 ogrid = zeros((xmax-xmin)*(1/res), (ymax-ymin)*(1/res));
 
 %particle filter (kinda)
 %particle_priors_offsets = [];
 
-gridx_offsets = -1:1;
-gridy_offsets = -1:1;
+gridx_offsets = -2:2;
+gridy_offsets = -2:2;
 H = getH(0, 0, 0, 0, 0, 0);
 previous_pose = [0 0 0];
 theta0 = lidar{1}.rpy(3);
@@ -64,17 +70,17 @@ im_hand = imshow(siglim(ogrid));
 hold on;
 %axis([xmin,xmax,ymin,ymax,zmin,zmax]);
 %axis equal;
-p = plot(s(1),s(2),'r.', 'MarkerSize', 1);
+p = plot(s(1),s(2),'r');
 %o = plot(0, 0, 'b.', 'MarkerSize', 1);
 h = fill(T(1,:),T(2,:), 'g');
 g = plot(0, 0, 'g.', 'MarkerSize', 1);
 
 s_hist = s;
 %% run in time
-for i=20000:10:numel(ts)
+for i=20:20:numel(ts)
 
     %get data and match up times
-    t = ts(i); %taken from joints which is relative time
+    t = ts(i)-t0; %taken from joints which is relative time
     fprintf('time: %4.2f \r', t);
     %find correct lidar (these use a different time than the joints)
     [~,idx] = min(abs(ts_l - t));
@@ -84,17 +90,26 @@ for i=20000:10:numel(ts)
     %get the correct joint angles (these use the joint time)
     head_angles = [pos(i,iNeck), pos(i,iHead)]; %[yaw, pitch]
     % remove noisy data out of valid range
-    lidar{idx}.scan(lidar{idx}.scan > 20) = 0;
-    dists = lidar{idx}.scan; 
-    vects_l = [dists.*cos(thetas-2.3562); dists.*sin(thetas-2.3562); zeros(1, num_angs)];
+    mask = (lidar{idx}.scan < 30) & (lidar{idx}.scan >0.5); %& lidar{idx}.scan > 0.5);
+    
+    num_angs = sum(mask);
+    
+    %lidar{idx}.scan(lidar{idx}.scan > 20) = [];
+    %lidar{idx}.scan(lidar{idx}.scan < 0.5) = [];
+    dists = lidar{idx}.scan;
+    
+    dists_new = dists(mask);
+    thetas_new = thetas(mask);
+    sum(mask)
+    
+    vects_l = [dists_new.*cos(thetas_new-2.3562); dists_new.*sin(thetas_new-2.3562); zeros(1, num_angs)];
     vects_w = H*[vects_l; ones(1, length(vects_l))];
 
-    
     % LOCALIZATION -- PARTICLEish FILTER IMPLEMENTATION
     %generate "school of fish" particles
     ds = [pose(1:2) - previous_pose(1:2), theta - previous_pose(3)];
     
-    theta_offsets = normrnd(0, abs(ds(3)), [1, 5]);
+    theta_offsets = [0, normrnd(0, max(abs(ds(3)), 0.0001), [1, 10])];
     particle_weights = zeros(length(gridy_offsets), length(gridx_offsets), length(theta_offsets));
     for v = 1:length(gridx_offsets)
         for u=1:length(gridy_offsets)
@@ -154,8 +169,8 @@ for i=20000:10:numel(ts)
             ogrid(sub2ind(size(ogrid),between(:,1), between(:,2))) - inc;
     end
     %limit the occupancy grid
-    ogrid(ogrid < -2) = -2;
-    ogrid(ogrid > 2) = 2;
+    ogrid(ogrid < -3) = -3;
+    ogrid(ogrid > 3) = 3;
     [occupied_i, occupied_j] = find(siglim(ogrid) > occ_thres);
     
     %plotting
@@ -163,6 +178,7 @@ for i=20000:10:numel(ts)
     %set(o, 'XDATA', (occupied_i*res)+xmin, 'YDATA', (occupied_j*res)+ymin);
     set(g, 'XDATA', round((vects_w(2,:)-ymin)/res), 'YDATA', round((vects_w(1,:)-xmin)/res));
     set(h, 'XDATA', round((Tr(2,:)-ymin)/res), 'YDATA', round((Tr(1,:)-xmin)/res));
+    set(p, 'XDATA', (s_hist(2,:)-ymin)/res, 'YDATA', (s_hist(1,:)-xmin)/res)
     if(mod(i, 25) == 0)
         pause(0.025);
     end
