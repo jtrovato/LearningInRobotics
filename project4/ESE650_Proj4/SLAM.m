@@ -10,7 +10,7 @@ if verbose
     for i=1:numel(lidar)
         ts_l(i) = (lidar{i}.t -t0); %make the lidar time on the same scale as the joint time
     end
-    load depth0.mat
+    %load depth0.mat
 end
 
 %% initialization
@@ -73,7 +73,7 @@ s_hist = s;
 %% run in time
 for i=20000:10:numel(ts)
 
-    %get data and match up times
+    %GET DATA and MATCH TIMESTAMPS
     t = ts(i); %taken from joints which is relative time
     fprintf('time: %4.2f \r', t);
     %find correct lidar (these use a different time than the joints)
