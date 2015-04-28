@@ -32,7 +32,7 @@ tracks = {};
 tracked_feats = [];
 
 % start matching
-for im=1:30
+for im=1:200
     I = imread(['./08/mono_gray/' num2str(im,'%06d') '.png']);
     tic; matcherMex('push',I);
     disp(['Feature detection: ' num2str(toc) ' seconds']);

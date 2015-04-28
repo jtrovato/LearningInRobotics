@@ -1,83 +1,120 @@
-% demonstrates mono visual odometry on an image sequence
+% demonstrates monocular feature tracking (via feature indices)
 disp('===========================');
-clear all; close all; dbstop error;
+clear all; dbstop error; close all;
+addpath(genpath('labviso2'));
 
-% parameter settings (for an example, please download
-% sequence '2010_03_09_drive_0019' from www.cvlibs.net)
-img_dir = './08/image_2';
-param.f      = 645.2;
-param.cu     = 635.9;
-param.cv     = 194.1;
-param.height = 1.6;
-param.pitch  = -0.08;
-first_frame  = 0;
-last_frame   = 372;
+%video init
+vid = VideoWriter('monovo_progress');
+open(vid);
 
-% init visual odometry
-%visualOdometryMonoMex('init',param);
+K = [9.842439e+02 0.000000e+00 6.900000e+02;
+    0.000000e+00 9.808141e+02 2.331966e+02;
+    0.000000e+00 0.000000e+00 1.000000e+00];
 
-% init transformation matrix array
-Tr_total{1} = eye(4);
+% matching parameters
+param.nms_n                  = 2;   % non-max-suppression: min. distance between maxima (in pixels)
+param.nms_tau                = 50;  % non-max-suppression: interest point peakiness threshold
+param.match_binsize          = 50;  % matching bin width/height (affects efficiency only)
+param.match_radius           = 200; % matching radius (du/dv in pixels)
+param.match_disp_tolerance   = 1;   % du tolerance for stereo matches (in pixels)
+param.outlier_disp_tolerance = 5;   % outlier removal: disparity tolerance (in pixels)
+param.outlier_flow_tolerance = 5;   % outlier removal: flow tolerance (in pixels)
+param.multi_stage            = 1;   % 0=disabled,1=multistage matching (denser and faster)
+param.half_resolution        = 1;   % 0=disabled,1=match at half resolution, refine at full resolution
+param.refinement             = 2;   % refinement (0=none,1=pixel,2=subpixel)
 
-% create figure
-figure('Color',[1 1 1]);
-ha1 = axes('Position',[0.05,0.7,0.9,0.25]);
-axis off;
-ha2 = axes('Position',[0.05,0.05,0.9,0.6]);
-set(gca,'XTick',-500:10:500);
-set(gca,'YTick',-500:10:500);
-axis equal, grid on, hold on;
+% init matcher
+matcherMex('init',param);
 
-% for all frames do
-replace = 0;
-for frame=first_frame:last_frame
-  
-  % 1-based index
-  k = frame-first_frame+1;
-  
-  % read current images
-  I = imread([img_dir '/' num2str(frame,'%06d') '.png']);
-  I = rgb2gray(I);
-  
-%   % compute egomotion
-%   Tr = visualOdometryMonoMex('process',I,replace);
-%   
-%   % accumulate egomotion, starting with second frame
-%   if k>1
-%     
-%     % if motion estimate failed: set replace "current frame" to "yes"
-%     % this will cause the "last frame" in the ring buffer unchanged
-%     if isempty(Tr)
-%       replace = 1;
-%       Tr_total{k} = Tr_total{k-1};
-%       
-%     % on success: update total motion (=pose)
-%     else
-%       replace = 0;
-%       Tr_total{k} = Tr_total{k-1}*inv(Tr);
-%     end
-%   end
+% push back first image
+I = imread('./08/mono_gray/000000.png');
+matcherMex('push',I);
 
-  % update image
-  axes(ha1); cla;
-  imagesc(I); colormap(gray);
-  axis off;
-  
-  % update trajectory
-  axes(ha2);
-%   if k>1
-%     plot([Tr_total{k-1}(1,4) Tr_total{k}(1,4)], ...
-%          [Tr_total{k-1}(3,4) Tr_total{k}(3,4)],'-xb','LineWidth',1);
-%   end
-  pause(0.05);
+pos = [0 0 0 1]';
+R = eye(3);
 
-%   % output statistics
-%   num_matches = visualOdometryMonoMex('num_matches');
-%   num_inliers = visualOdometryMonoMex('num_inliers');
-%   disp(['Frame: ' num2str(frame) ...
-%         ', Matches: ' num2str(num_matches) ...
-%         ', Inliers: ' num2str(100*num_inliers/num_matches,'%.1f') ,' %']);
+%intial plot to set up handles
+fig = figure(1);
+subplot(2,1,1);
+hi = imshow(I); hold on;
+hp = plot(1, 1, 'xr');
+hf = plot(1, 1, 'xg');
+subplot(2,1,2);
+%hpos = plot3(pos(1), pos(2), pos(3), 'b-o');
+hpos = plot(pos(1,:), pos(3,:), 'b-o');
+grid on;
+
+
+% feature tracks
+tracks = {};
+tracked_feats = [];
+previous_feats = [];
+
+% start matching
+for im=1:100
+    I = imread(['./08/mono_gray/' num2str(im*2,'%06d') '.png']);
+    tic; matcherMex('push',I);
+    disp(['Feature detection: ' num2str(toc) ' seconds']);
+    tic; matcherMex('match',0);
+    p_matched{im} = matcherMex('get_matches',0);
+    i_matched{im} = matcherMex('get_indices',0);
+    disp(['Feature matching:  ' num2str(toc) ' seconds']);
+
+    x1 = p_matched{end}(3:4,:)';
+    x2 = p_matched{end}(1:2,:)';
+    [inliers1, inliers2, inds] = GetInliersRANSAC(x1, x2);
+    F = EstimateFundamentalMatrix(inliers1 , inliers2);
+    E = EssentialMatrixFromFundamentalMatrix(F, K);
+    [tset, Rset] = ExtractCameraPose(E);
+    
+    Xset = cell(4,1);
+    for i=1:4
+        %start the transformation with the identity and build from there
+        Xset{i} = LinearTriangulation(K, [0;0;0], eye(3), tset{i}, Rset{i}, inliers1, inliers2);
+        verbose = 0;
+        if verbose
+            figure(3);
+            points = Xset{i};
+            Rplot = [0 0 1; -1 0 0; 0 -1 0];
+            points_r = (Rplot*points')';
+            subplot(2,2,i);
+            showPointCloud(points_r(:,1), points_r(:,2), points_r(:,3));
+        end
+    end
+    
+    [t,R,X, ind] = DisambiguateCameraPose(tset, Rset, Xset);
+    if verbose
+        figure(4)
+        Rplot = [0 0 1; -1 0 0; 0 -1 0];
+        points_r = (Rplot*points')';
+        showPointCloud(points_r(:,1), points_r(:,2), points_r(:,3));
+        ind
+        pause
+    end
+    Tk = [eye(3), t; 0 0 0 1]; %[4x4]
+    
+    pos(:,end+1) = Tk*pos(:, end);
+    pos(:,end) = pos(:,end)/pos(end,end);
+    
+    
+    % update the plot with new matches
+    set(hi, 'CDATA', I);
+    %set(hp, 'XDATA', p_matched{end}(3, :), 'YDATA', p_matched{end}(4, :));
+    set(hp, 'XDATA', inliers1(:, 1), 'YDATA', inliers1(:, 2));
+    if ~isempty(tracked_feats)
+        %set(hf, 'XDATA', tracked_feats(1, :), 'YDATA', tracked_feats(2, :));
+    end
+    %set(hpos, 'XDATA', pos(1,:), 'YDATA', pos(3,:), 'ZDATA', pos(3,:));
+    set(hpos, 'XDATA', pos(1,:), 'YDATA', pos(3,:));
+    pause(0.025);
+    frame = getframe(fig);
+    writeVideo(vid, frame);
+    tracked_feats = [];
+    
 end
 
-% release visual odometry
-%visualOdometryMonoMex('close');
+% close matcher
+matcherMex('close');
+%close video
+close(vid);
+
