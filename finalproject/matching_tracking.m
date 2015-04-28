@@ -1,10 +1,11 @@
 % demonstrates monocular feature tracking (via feature indices)
 disp('===========================');
-dbstop error; close all;
+clear all; dbstop error; close all;
+addpath(genpath('labviso2'));
 
 % matching parameters
-param.nms_n                  = 2;   % non-max-suppression: min. distance between maxima (in pixels)
-param.nms_tau                = 50;  % non-max-suppression: interest point peakiness threshold
+param.nms_n                  = 6;   % non-max-suppression: min. distance between maxima (in pixels)
+param.nms_tau                = 80;  % non-max-suppression: interest point peakiness threshold
 param.match_binsize          = 50;  % matching bin width/height (affects efficiency only)
 param.match_radius           = 200; % matching radius (du/dv in pixels)
 param.match_disp_tolerance   = 1;   % du tolerance for stereo matches (in pixels)
@@ -19,25 +20,28 @@ matcherMex('init',param);
 
 % push back first image
 I = imread('./08/mono_gray/000000.png');
-I = rgb2gray(I);
 matcherMex('push',I);
 
-imshow(I);
+%intial plot to set up handles
+hi = imshow(I); hold on;
+hp = plot(1, 1, 'xr');
+hf = plot(1, 1, 'xg');
 
 % feature tracks
 tracks = {};
+tracked_feats = [];
 
 % start matching
-for i=1:300
-    I = imread(['./08/mono_gray/' num2str(i,'%06d') '.png']);
+for im=1:30
+    I = imread(['./08/mono_gray/' num2str(im,'%06d') '.png']);
     tic; matcherMex('push',I);
     disp(['Feature detection: ' num2str(toc) ' seconds']);
     tic; matcherMex('match',0);
-    p_matched{i} = matcherMex('get_matches',0);
-    i_matched{i} = matcherMex('get_indices',0);
+    p_matched{im} = matcherMex('get_matches',0);
+    i_matched{im} = matcherMex('get_indices',0);
     disp(['Feature matching:  ' num2str(toc) ' seconds']);
 
-    % for all matches in the last frame, check if
+    % for all matches in the last frame
     for i=1:size(i_matched{end},2)
 
         ind = i;
@@ -50,24 +54,31 @@ for i=1:300
         % augment track into the past
         for j=length(p_matched)-1:-1:1
 
-        % find backwards
-        ind = find(i_matched{j}(2,:)==i_matched{j+1}(1,ind));
-        if isempty(ind)
-          break;
+            % find backwards
+            ind = find(i_matched{j}(2,:)==i_matched{j+1}(1,ind));
+            if isempty(ind)
+              break;
+            end
+
+            p3 = p_matched{j}(1:2,ind);
+            p  = [p p3];
         end
 
-        p3 = p_matched{j}(1:2,ind);
-        p  = [p p3];
-      end
-
-      track_length = length(p_matched)-j;
-      if track_length<2
-        continue;
-      end
-
-      plotSalientFeats(I,p_matched,i_matched);
+        track_length = length(p_matched)-j;
+        if track_length>8
+            tracked_feats = [tracked_feats, p(:, 1)];
+        end
     end
-
+    
+    % update the plot with new matches
+    set(hi, 'CDATA', I);
+    set(hp, 'XDATA', p_matched{end}(3, :), 'YDATA', p_matched{end}(4, :));
+    if ~isempty(tracked_feats)
+        set(hf, 'XDATA', tracked_feats(1, :), 'YDATA', tracked_feats(2, :));
+    end
+    pause(0.025);
+    tracked_feats = [];
+    
 end
 
 % close matcher
