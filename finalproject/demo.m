@@ -4,12 +4,13 @@ clear all; dbstop error; close all;
 addpath(genpath('labviso2'));
 
 %video init
-vid = VideoWriter('monovo_progress');
-open(vid);
+%vid = VideoWriter('monovo_progress');
+%open(vid);
 
-K = [9.842439e+02 0.000000e+00 6.900000e+02;
-    0.000000e+00 9.808141e+02 2.331966e+02;
-    0.000000e+00 0.000000e+00 1.000000e+00];
+K = [7.070912000000e+02 0.000000000000e+00 6.018873000000e+02
+    0.000000000000e+00 7.070912000000e+02 1.831104000000e+02
+    0.000000000000e+00 0.000000000000e+00 1.000000000000e+00];
+
 
 % matching parameters
 param.nms_n                  = 2;   % non-max-suppression: min. distance between maxima (in pixels)
@@ -29,9 +30,10 @@ matcherMex('init',param);
 % push back first image
 I = imread('./08/mono_gray/000000.png');
 matcherMex('push',I);
+numims = 100;
 
-pos = [0 0 0 1]';
-R = eye(3);
+% init transformation matrix array
+Tr_total = eye(4);
 
 %intial plot to set up handles
 fig = figure(1);
@@ -39,82 +41,51 @@ subplot(2,1,1);
 hi = imshow(I); hold on;
 hp = plot(1, 1, 'xr');
 hf = plot(1, 1, 'xg');
+ha = plot(1, 1, '+g');
 subplot(2,1,2);
-%hpos = plot3(pos(1), pos(2), pos(3), 'b-o');
-hpos = plot(pos(1,:), pos(3,:), 'b-o');
+%hpos = plot(Tr_total(1,4), Tr_total(3,4), 'b-o');
+hpos = plot3(Tr_total(1,4), Tr_total(3,4), -Tr_total(2,4), 'b-o');
 grid on;
 
-
-% feature tracks
-tracks = {};
-tracked_feats = [];
-previous_feats = [];
-
+replace = 0;
 % start matching
-for im=1:100
-    I = imread(['./08/mono_gray/' num2str(im*2,'%06d') '.png']);
-    tic; matcherMex('push',I);
-    disp(['Feature detection: ' num2str(toc) ' seconds']);
-    tic; matcherMex('match',0);
-    p_matched{im} = matcherMex('get_matches',0);
-    i_matched{im} = matcherMex('get_indices',0);
-    disp(['Feature matching:  ' num2str(toc) ' seconds']);
+for k=1:numims
+    I = imread(['./08/mono_gray/' num2str(k,'%06d') '.png']);
+    [Tr, inliers2, x2] = process(I, replace, K);
+    % accumulate egomotion, starting with second frame
+    if k>1
 
-    x1 = p_matched{end}(3:4,:)';
-    x2 = p_matched{end}(1:2,:)';
-    [inliers1, inliers2, inds] = GetInliersRANSAC(x1, x2);
-    F = EstimateFundamentalMatrix(inliers1 , inliers2);
-    E = EssentialMatrixFromFundamentalMatrix(F, K);
-    [tset, Rset] = ExtractCameraPose(E);
-    
-    Xset = cell(4,1);
-    for i=1:4
-        %start the transformation with the identity and build from there
-        Xset{i} = LinearTriangulation(K, [0;0;0], eye(3), tset{i}, Rset{i}, inliers1, inliers2);
-        verbose = 0;
-        if verbose
-            figure(3);
-            points = Xset{i};
-            Rplot = [0 0 1; -1 0 0; 0 -1 0];
-            points_r = (Rplot*points')';
-            subplot(2,2,i);
-            showPointCloud(points_r(:,1), points_r(:,2), points_r(:,3));
+        % if motion estimate failed: set replace "current frame" to "yes"
+        % this will cause the "last frame" in the ring buffer unchanged
+        if isempty(Tr)
+            replace = 1;
+            Tr_total(:,:,k) = Tr_total(:,:,k-1);
+
+        % on success: update total motion (=pose)
+        else
+            replace = 0;
+            Tr_total(:,:,k) = Tr_total(:,:,k-1)*Tr; %inv becuase this is the motions from the second frame to the first?
         end
     end
-    
-    [t,R,X, ind] = DisambiguateCameraPose(tset, Rset, Xset);
-    if verbose
-        figure(4)
-        Rplot = [0 0 1; -1 0 0; 0 -1 0];
-        points_r = (Rplot*points')';
-        showPointCloud(points_r(:,1), points_r(:,2), points_r(:,3));
-        ind
-        pause
-    end
-    Tk = [eye(3), t; 0 0 0 1]; %[4x4]
-    
-    pos(:,end+1) = Tk*pos(:, end);
-    pos(:,end) = pos(:,end)/pos(end,end);
-    
     
     % update the plot with new matches
     set(hi, 'CDATA', I);
     %set(hp, 'XDATA', p_matched{end}(3, :), 'YDATA', p_matched{end}(4, :));
-    set(hp, 'XDATA', inliers1(:, 1), 'YDATA', inliers1(:, 2));
-    if ~isempty(tracked_feats)
+    set(hp, 'XDATA', inliers2(:, 1), 'YDATA', inliers2(:, 2));
+    set(ha, 'XDATA', x2(:,1), 'YDATA', x2(:, 2));
+    %if ~isempty(tracked_feats)
         %set(hf, 'XDATA', tracked_feats(1, :), 'YDATA', tracked_feats(2, :));
-    end
-    %set(hpos, 'XDATA', pos(1,:), 'YDATA', pos(3,:), 'ZDATA', pos(3,:));
-    set(hpos, 'XDATA', pos(1,:), 'YDATA', pos(3,:));
+    %end
+    set(hpos, 'XDATA', Tr_total(1,4,:), 'YDATA', Tr_total(3,4,:), 'ZDATA', -Tr_total(2,4,:));
+    %set(hpos, 'XDATA', Tr_total(1,4,:), 'YDATA', Tr_total(3,4,:));
     pause(0.025);
-    frame = getframe(fig);
-    writeVideo(vid, frame);
-    tracked_feats = [];
+    %frame = getframe(fig);
+    %writeVideo(vid, frame);
     
 end
 
 % close matcher
 matcherMex('close');
 %close video
-close(vid);
+%close(vid);
 
